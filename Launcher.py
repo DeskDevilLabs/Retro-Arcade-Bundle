@@ -9,23 +9,26 @@ import threading
 # Initialize Pygame mixer
 pygame.mixer.init()
 
+import shutil
+import tempfile
+
 def resource_path(relative_path):
     """
     Resolves path for both PyInstaller .exe and normal script execution.
-    Works for:
-      - Bundled assets in the PyInstaller _MEIPASS folder.
-      - External files in the same folder as the .exe/.py file.
+    If it's another .exe game, it will copy it to a temp folder first so it can run.
     """
-    # If running from PyInstaller bundle
     if getattr(sys, 'frozen', False):
-        # First try inside temp bundle (_MEIPASS)
         temp_path = os.path.join(sys._MEIPASS, relative_path)
         if os.path.exists(temp_path):
+            # If it's a game .exe, copy to temp folder to run
+            if temp_path.lower().endswith(".exe") and relative_path.lower() != os.path.basename(sys.executable).lower():
+                target = os.path.join(tempfile.gettempdir(), os.path.basename(relative_path))
+                if not os.path.exists(target):
+                    shutil.copy2(temp_path, target)
+                return target
             return temp_path
-        # Fallback to directory of the executable
         return os.path.join(os.path.dirname(sys.executable), relative_path)
     else:
-        # Running in normal Python
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
 
 
@@ -168,18 +171,23 @@ class RetroArcadeLauncher:
         if os.path.exists(exe_path):
             try:
                 pygame.mixer.music.stop()
+
                 def run_game():
                     try:
-                        subprocess.Popen([exe_path], shell=True)
+                        process = subprocess.Popen([exe_path], shell=True)
+                        process.wait()  # Wait until the game exits
                     finally:
                         play_music()
+
                 threading.Thread(target=run_game, daemon=True).start()
+
             except Exception as e:
                 play_error_sound()
                 self.show_error(f"Error launching {exe_path}: {e}")
         else:
             play_error_sound()
             self.show_error(f"File not found: {exe_path}")
+
 
     def show_error(self, message):
         error = tk.Toplevel(self.root)
