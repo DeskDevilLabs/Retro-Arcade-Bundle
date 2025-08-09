@@ -11,14 +11,23 @@ pygame.mixer.init()
 
 def resource_path(relative_path):
     """
-    Get absolute path to resource, works for dev and for PyInstaller.
-    This assumes assets/ is next to the launcher file and games are in the same folder as launcher.
+    Resolves path for both PyInstaller .exe and normal script execution.
+    Works for:
+      - Bundled assets in the PyInstaller _MEIPASS folder.
+      - External files in the same folder as the .exe/.py file.
     """
-    try:
-        base_path = sys._MEIPASS  # PyInstaller temp folder
-    except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
+    # If running from PyInstaller bundle
+    if getattr(sys, 'frozen', False):
+        # First try inside temp bundle (_MEIPASS)
+        temp_path = os.path.join(sys._MEIPASS, relative_path)
+        if os.path.exists(temp_path):
+            return temp_path
+        # Fallback to directory of the executable
+        return os.path.join(os.path.dirname(sys.executable), relative_path)
+    else:
+        # Running in normal Python
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
+
 
 # --- Sound Functions ---
 def play_music():
